@@ -1,0 +1,60 @@
+﻿@page "/"
+@using PushAPI.Client.Enums
+@using PushAPI.Shared
+
+<PageTitle>Index</PageTitle>
+<div>
+    Notification status:
+    @if (NotificationPermission == NotificationPermissionStatus.Prompt)
+    {
+        <span>Notification permissions not set</span> <button @onclick="SubscribeToPushMessages">Authorize/Subscribe Push</button>
+    }
+    @if (NotificationPermission == NotificationPermissionStatus.Denied)
+    {
+        <div style="color: red;">
+            Notifications previously blocked. Please open your browser preferences or click the lock near the address bar to change your notification preferences.
+        </div>
+    }
+    @if (NotificationPermission == NotificationPermissionStatus.Granted)
+    {
+        <div style="color: green;">
+            Notifications enabled.
+        </div>
+    }
+</div>
+
+<button @onclick="TriggerPush">Trigger Push Message</button>
+
+@inject HttpClient httpClient
+@inject IJSRuntime JSRuntime
+@code {
+    private string NotificationPermission { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckNotificationPermissions();
+    }
+
+    private async Task CheckNotificationPermissions()
+    {
+        NotificationPermission = await JSRuntime.InvokeAsync<string>("pushNotifications.getPermissionState");
+        //if (NotificationPermissionStatus != NotificationsPermissionStatus.Granted) await OpenNotificationPermissionPrompt();
+        StateHasChanged();
+    }
+
+    async Task SubscribeToPushMessages()
+    {
+        var subscription = await JSRuntime.InvokeAsync<PushMessageSubscription>("pushNotifications.requestSubscription");
+        if (subscription != null)
+        {
+            var response = await httpClient.PutAsJsonAsync("Push/Subscribe", subscription);
+            response.EnsureSuccessStatusCode();
+        }
+        await CheckNotificationPermissions();
+    }
+    public async Task TriggerPush()
+    {
+        var response = await httpClient.GetAsync("Push/Send");
+        response.EnsureSuccessStatusCode();
+    }
+}
