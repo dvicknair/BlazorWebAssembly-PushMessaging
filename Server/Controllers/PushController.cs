@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using PushAPI.Shared;
+using System.Net;
 using System.Text.Json;
 using WebPush;
 
@@ -46,9 +47,12 @@ namespace PushAPI.Server.Controllers
                 {
                     await webPushClient.SendNotificationAsync(subscription, payload, vapidDetails);
                 }
-                catch (Exception e)
+                catch (WebPushException e)
                 {
-                    _logger.LogError("Error sending push notification: " + e.Message);
+                    if(e.StatusCode == HttpStatusCode.Gone)
+                    {
+                        PushSubsciptions.RemoveAll(x => x.Auth == subscription.Auth);
+                    }
                 }
             }
         }
